@@ -8,7 +8,7 @@ Most people track their lifts in the Notes app or not at all, so they forget las
 
 ## Team
 
-Om Singhal, (add teammates)
+Om Singhal and Jacob Heffelmire
 
 ## Planned stack
 
