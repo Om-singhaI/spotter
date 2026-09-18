@@ -2,8 +2,6 @@
 
 The gym log that remembers your last set and brings your friends.
 
-CS537 Full Stack Web Development, Purdue University Fort Wayne, Fall 2026. Group project.
-
 ## What it is
 
 Most people track their lifts in the Notes app or not at all, so they forget last week's numbers, can't see progress, and quit. Spotter opens every exercise with your last session sitting there as a ghost row to beat, calls personal records the moment they happen, and lets you form a squad with friends. The squad leaderboard ranks people by showing up and by beating their own numbers, never by who lifts the most, so a beginner can win.
@@ -37,7 +35,7 @@ Five sprints of two weeks. Dates are a first guess and will be lined up with the
 
 ## How we work
 
-- Every user story is an issue on the project board. Every sprint is a milestone.
+- Every user story is an issue on the [project board](https://github.com/users/Om-singhaI/projects/1). Every sprint is a milestone.
 - Branch from `main`, open a pull request, one teammate reviews, then merge. Nothing goes straight to `main`.
 - CI runs lint, type checks, and tests on every pull request.
 - Discord for daily chat. Two meetings a week: in person after class, and a short call midweek.
