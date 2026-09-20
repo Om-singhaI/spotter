@@ -33,6 +33,23 @@ Five sprints of two weeks. Dates are a first guess and will be lined up with the
 | 4 | Nov 2 to Nov 15 | Squads: friends, live feed, spots, leaderboard, privacy |
 | 5 | Nov 16 to Nov 29 | Polish: offline stretch goal, testing push, rehearsal. Final demo in December. |
 
+## Weekly plan
+
+Sprints are two weeks because the course asks for that, but we ship something every week. Every card on the board has a Week, and the This week view shows what is due.
+
+| Week | Dates | What ships |
+| --- | --- | --- |
+| 1 | Sep 21 to 27 | Repo scaffold, CI, database schema, team setup |
+| 2 | Sep 28 to Oct 4 | Live hello world, login, exercise library |
+| 3 | Oct 5 to 11 | Start a workout, add exercises from the library |
+| 4 | Oct 12 to 18 | Log sets with the ghost row, history, installable app shell |
+| 5 | Oct 19 to 25 | Record detection, one rep max, progress charts |
+| 6 | Oct 26 to Nov 1 | Streaks, plate calculator, midterm demo |
+| 7 | Nov 2 to 8 | Friends, squads, live feed |
+| 8 | Nov 9 to 15 | Spots, leaderboard, privacy controls |
+| 9 | Nov 16 to 22 | Testing push, offline logging stretch goal |
+| 10 | Nov 23 to 29 | Seed data, phone testing, rehearsal, packaged submission |
+
 ## How we work
 
 - Every user story is an issue on the [project board](https://github.com/users/Om-singhaI/projects/1). Every sprint is a milestone.
