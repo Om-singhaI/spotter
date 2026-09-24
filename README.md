@@ -59,4 +59,33 @@ Sprints are two weeks because the course asks for that, but we ship something ev
 
 ## Getting started
 
-Coming in sprint 1. See the scaffolding issue on the board.
+You need Node 22 or newer and npm.
+
+```bash
+git clone https://github.com/Om-singhaI/spotter.git
+cd spotter
+npm install
+npm run dev
+```
+
+That starts both apps. The web app is at http://localhost:5173 and the API is at http://localhost:3000. In development the web app proxies `/api/*` to the API, so `http://localhost:5173/api/health` reaches the API's `/health`.
+
+The repo is an npm workspace with two packages:
+
+| Folder | What it is | Dev command |
+| --- | --- | --- |
+| `web/` | React app built with Vite, TypeScript, and Tailwind | `npm run dev -w web` |
+| `api/` | Express API in TypeScript, with Zod for validation | `npm run dev -w api` |
+
+Scripts that run from the repo root:
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Start web and api together |
+| `npm run lint` | ESLint over both packages |
+| `npm run format` | Prettier, writes changes |
+| `npm run format:check` | Prettier, check only (what CI runs) |
+| `npm run typecheck` | TypeScript in both packages |
+| `npm run build` | Production builds for both packages |
+
+The API reads `PORT` from the environment and falls back to 3000.
