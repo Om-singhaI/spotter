@@ -54,9 +54,40 @@ Sprints are two weeks because the course asks for that, but we ship something ev
 
 - Every user story is an issue on the [project board](https://github.com/users/Om-singhaI/projects/1). Every sprint is a milestone.
 - Branch from `main`, open a pull request, one teammate reviews, then merge. Nothing goes straight to `main`.
-- CI runs lint, type checks, and tests on every pull request.
+- CI runs lint, Prettier, type checks, and tests with coverage on every pull request and on `main`. A pull request cannot merge until it is green and one teammate has approved.
 - Discord for daily chat. Two meetings a week: in person after class, and a short call midweek.
 
 ## Getting started
 
-Coming in sprint 1. See the scaffolding issue on the board.
+You need Node 22 or newer and npm.
+
+```bash
+git clone https://github.com/Om-singhaI/spotter.git
+cd spotter
+npm install
+npm run dev
+```
+
+That starts both apps. The web app is at http://localhost:5173 and the API is at http://localhost:3000. In development the web app proxies `/api/*` to the API, so `http://localhost:5173/api/health` reaches the API's `/health`.
+
+The repo is an npm workspace with two packages:
+
+| Folder | What it is | Dev command |
+| --- | --- | --- |
+| `web/` | React app built with Vite, TypeScript, and Tailwind | `npm run dev -w web` |
+| `api/` | Express API in TypeScript, with Zod for validation | `npm run dev -w api` |
+
+Scripts that run from the repo root:
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Start web and api together |
+| `npm run lint` | ESLint over both packages |
+| `npm run format` | Prettier, writes changes |
+| `npm run format:check` | Prettier, check only (what CI runs) |
+| `npm run typecheck` | TypeScript in both packages |
+| `npm run test` | Vitest across both packages |
+| `npm run test:coverage` | Same, with a coverage report |
+| `npm run build` | Production builds for both packages |
+
+The API reads `PORT` from the environment and falls back to 3000.
