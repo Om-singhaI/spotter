@@ -50,6 +50,27 @@ Sprints are two weeks because the course asks for that, but we ship something ev
 | 9 | Nov 16 to 22 | Testing push, offline logging stretch goal |
 | 10 | Nov 23 to 29 | Seed data, phone testing, rehearsal, packaged submission |
 
+## Database
+
+PostgreSQL on Supabase. The schema lives in `supabase/migrations/` and is explained in [docs/database.md](docs/database.md), which also has the diagram, the units decision, the row level security model, and the SQL for the ghost row, the record check, and the leaderboard.
+
+To run it locally you need Docker and the Supabase CLI:
+
+```bash
+supabase start
+supabase db reset --local
+```
+
+The first command starts only a Postgres container, because every other Supabase service is switched off in `supabase/config.toml`. The second wipes that database and applies every migration in order. Local ports are in the 5434x range so they do not clash with another project's stack.
+
+There is a smoke test that loads fake data, asserts the three core queries return the right answers, and checks that row level security hides other people's sets from a signed in user and everything from anonymous requests:
+
+```bash
+psql "postgresql://postgres:postgres@127.0.0.1:54342/postgres" -v ON_ERROR_STOP=1 -f supabase/smoke.sql
+```
+
+Run it after every schema change. It fails loudly if a query stops returning what the docs promise.
+
 ## How we work
 
 - Every user story is an issue on the [project board](https://github.com/users/Om-singhaI/projects/1). Every sprint is a milestone.
