@@ -59,16 +59,20 @@ Sprints are two weeks because the course asks for that, but we ship something ev
 
 ## Getting started
 
-You need Node 22 or newer and npm.
+You need Node 22 or newer, Docker Desktop, and the [Supabase CLI](https://supabase.com/docs/guides/local-development). Then, from a fresh clone:
 
 ```bash
-git clone https://github.com/Om-singhaI/spotter.git
-cd spotter
 npm install
+supabase start
+supabase db reset --local
+cp api/.env.example api/.env
+npm run seed
 npm run dev
 ```
 
-That starts both apps. The web app is at http://localhost:5173 and the API is at http://localhost:3000. In development the web app proxies `/api/*` to the API, so `http://localhost:5173/api/health` reaches the API's `/health`.
+In order: install both packages, start a local Postgres in Docker (only the database is enabled in `supabase/config.toml`, on port 54342 so it never clashes with another project), apply every migration to it, point the API at it, load the exercise library, and start both apps. The seed is safe to run again. If the schema has a smoke test, run it right after the reset and before the seed, because it inserts a couple of library rows by id.
+
+The web app is at http://localhost:5173 and the API is at http://localhost:3000. In development the web app proxies `/api/*` to the API, so `http://localhost:5173/api/health` reaches the API's `/health`.
 
 The repo is an npm workspace with two packages:
 
@@ -91,3 +95,7 @@ Scripts that run from the repo root:
 | `npm run build` | Production builds for both packages |
 
 The API reads `PORT` from the environment and falls back to 3000.
+
+## Credits
+
+The exercise library comes from [free exercise db](https://github.com/yuhonas/free-exercise-db) by yuhonas, released into the public domain under the Unlicense. The seed and the exercise photos are pinned to commit `f00c92c7dcf1` of that repository, so bumping it is a deliberate change.

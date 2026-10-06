@@ -14,6 +14,7 @@ export default defineConfig({
         "web/src/test/**",
         "web/src/main.tsx",
         "api/src/index.ts",
+        "api/src/seed/**",
       ],
     },
   },
