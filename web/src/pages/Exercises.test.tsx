@@ -39,7 +39,7 @@ describe("ExercisesPage", () => {
     expect(await screen.findByText("Barbell Bench Press")).toBeInTheDocument();
     expect(screen.getByText("chest \u00b7 barbell")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("1 exercises");
-    expect(fetchMock).toHaveBeenCalledWith("/api/exercises?q=");
+    expect(fetchMock).toHaveBeenCalledWith("/api/exercises?q=", expect.anything());
   });
 
   it("says so when nothing matches", async () => {
@@ -64,7 +64,9 @@ describe("ExercisesPage", () => {
     fireEvent.change(box, { target: { value: "b" } });
     fireEvent.change(box, { target: { value: "be" } });
     fireEvent.change(box, { target: { value: "ben" } });
-    await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith("/api/exercises?q=ben"));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenLastCalledWith("/api/exercises?q=ben", expect.anything()),
+    );
     // typing within 250 ms of mount cancels the initial empty query, so one request for the burst
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
