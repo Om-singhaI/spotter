@@ -1,6 +1,10 @@
 import { Route, Routes } from "react-router-dom";
+import RequireAuth from "./auth/RequireAuth";
 import Home from "./pages/Home";
 import ExercisesPage from "./pages/Exercises";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -8,6 +12,11 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/exercises" element={<ExercisesPage />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route element={<RequireAuth />}>
+        <Route path="/account" element={<Account />} />
+      </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

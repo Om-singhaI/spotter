@@ -61,7 +61,7 @@ supabase start
 supabase db reset --local
 ```
 
-The first command starts only a Postgres container, because every other Supabase service is switched off in `supabase/config.toml`. The second wipes that database and applies every migration in order. Local ports are in the 5434x range so they do not clash with another project's stack.
+The first command starts Postgres on port 54342 and the API gateway with auth on port 54341; studio, storage, realtime, and the rest stay switched off in `supabase/config.toml`. Auth signs tokens with a local key that the API verifies through the JWKS endpoint, the same way a hosted project works. The second wipes that database and applies every migration in order. Local ports are in the 5434x range so they do not clash with another project's stack.
 
 There is a smoke test that loads fake data, asserts the three core queries return the right answers, and checks that row level security hides other people's sets from a signed in user and everything from anonymous requests:
 
@@ -70,6 +70,14 @@ psql "postgresql://postgres:postgres@127.0.0.1:54342/postgres" -v ON_ERROR_STOP=
 ```
 
 Run it after every schema change. It fails loudly if a query stops returning what the docs promise.
+
+## Hosted project
+
+For production the same code points at a hosted Supabase project, the web app on Vercel, and the API on Render.
+
+- Supabase dashboard: set Site URL to the Vercel URL and add `https://<vercel app>/login` to Redirect URLs, since the sign up confirmation link lands there. Email confirmation can stay on; the app handles the "check your email" case.
+- Render environment: `DATABASE_URL` (the project's pooled connection string, transaction mode), `SUPABASE_URL` (`https://<ref>.supabase.co`), and `SUPABASE_JWT_SECRET` only if the project still shows the legacy HS256 secret as current under JWT keys. Leave it unset for projects on signing keys. Render supplies `PORT`.
+- Vercel: root directory `web`, environment variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from the project's API settings, and a rewrite in `web/vercel.json` placed before the catch all that forwards `/api/(.*)` to the Render URL. Without that rewrite every API call returns the app's HTML.
 
 ## How we work
 
@@ -87,11 +95,12 @@ npm install
 supabase start
 supabase db reset --local
 cp api/.env.example api/.env
+cp web/.env.example web/.env
 npm run seed
 npm run dev
 ```
 
-In order: install both packages, start a local Postgres in Docker (only the database is enabled in `supabase/config.toml`, on port 54342 so it never clashes with another project), apply every migration to it, point the API at it, load the exercise library, and start both apps. The seed is safe to run again. If the schema has a smoke test, run it right after the reset and before the seed, because it inserts a couple of library rows by id.
+In order: install both packages, start a local Postgres in Docker (Postgres on 54342 plus the API gateway and auth on 54341; studio, storage, and realtime stay off in `supabase/config.toml`, and the 5434x ports never clash with another project), apply every migration to it, point the API and the web app at it, load the exercise library, and start both apps. Sign up with any email: the local stack skips email confirmation. The seed is safe to run again.
 
 The web app is at http://localhost:5173 and the API is at http://localhost:3000. In development the web app proxies `/api/*` to the API, so `http://localhost:5173/api/health` reaches the API's `/health`.
 
