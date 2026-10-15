@@ -12,7 +12,9 @@ insert into public.profiles (id, display_name, share_numbers) values
 insert into public.exercises (id, owner_id, name, category) values
   ('Barbell_Bench_Press_-_Medium_Grip', null, 'Barbell Bench Press - Medium Grip', 'strength'),
   ('Barbell_Squat', null, 'Barbell Squat', 'strength'),
-  ('cccccccc-0000-4000-8000-00000000000c', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Band Row', 'strength');
+  ('cccccccc-0000-4000-8000-00000000000c', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Band Row', 'strength')
+-- the seed may already have loaded the two library rows; keep whatever is there
+on conflict (id) do nothing;
 -- Ana trained 10 days and 1 day ago, Ben 40 days and 2 days ago; every workout is finished
 insert into public.workouts (id, user_id, started_at, finished_at) values
   ('a1a1a1a1-0000-4000-8000-000000000001', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', now() - interval '10 days', now() - interval '10 days' + interval '1 hour'),
