@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import App from "./App";
+import { AuthProvider } from "./auth/AuthProvider";
 
 function mockHealth(body: unknown) {
   vi.stubGlobal(
@@ -13,7 +14,9 @@ function mockHealth(body: unknown) {
 function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </MemoryRouter>,
   );
 }
@@ -30,7 +33,7 @@ describe("App", () => {
     mockHealth({ ok: true });
     renderAt("/");
     expect(await screen.findByText("ok")).toBeInTheDocument();
-    expect(fetch).toHaveBeenCalledWith("/api/health");
+    expect(fetch).toHaveBeenCalledWith("/api/health", expect.anything());
   });
 
   it("reports down when the API cannot be reached", async () => {

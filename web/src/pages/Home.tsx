@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiGet } from "../lib/api";
+import { useAuth } from "../auth/AuthProvider";
 
 type ApiStatus = "checking" | "ok" | "down";
 
 export default function Home() {
   const [api, setApi] = useState<ApiStatus>("checking");
+  const { session } = useAuth();
 
   useEffect(() => {
     apiGet<{ ok?: boolean }>("/health")
@@ -24,9 +26,17 @@ export default function Home() {
       <p className="text-sm">
         API: <span className={color}>{api}</span>
       </p>
-      <Link to="/exercises" className="mt-4 rounded-full bg-red-600 px-5 py-2 font-semibold">
-        Browse the exercise library
-      </Link>
+      <div className="mt-4 flex gap-3">
+        <Link to="/exercises" className="rounded-full bg-red-600 px-5 py-2 font-semibold">
+          Browse the exercise library
+        </Link>
+        <Link
+          to={session ? "/account" : "/login"}
+          className="rounded-full border border-zinc-700 px-5 py-2 font-semibold"
+        >
+          {session ? "Your account" : "Log in"}
+        </Link>
+      </div>
     </main>
   );
 }
