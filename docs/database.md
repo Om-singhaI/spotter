@@ -94,7 +94,7 @@ order by s.performed_at, s.id;
 
 ### Record check
 
-The API runs this in the same transaction right after it saves a set. n is the new set, b is the best of the user's earlier non warmup sets for the exercise (read through workout_sets_user_exercise_performed_idx) and k is the three kinds. The first non warmup set of an exercise counts as max_weight and max_e1rm. max_reps_at_weight needs an earlier non warmup set at that exact weight_kg, otherwise every new lighter weight would post a record. A warmup set matches nothing in n and inserts nothing. on conflict makes a retry harmless, and the returned kinds are what the API shows the user and what the squad feed later reads. Deleting a set removes its records through the cascade. When a set is edited, or whenever a recompute is needed, delete the user's records for the exercise and replay this statement over their non warmup sets in performed_at order.
+The API runs this in the same transaction right after it saves a set. n is the new set, b is the best of the user's earlier non warmup sets for the exercise (read through workout_sets_user_exercise_performed_idx) and k is the three kinds. The first non warmup set of an exercise counts as max_weight and max_e1rm. max_reps_at_weight needs an earlier non warmup set at that exact weight_kg, otherwise every new lighter weight would post a record. A warmup set matches nothing in n and inserts nothing. A bodyweight set (weight_kg of 0) can only earn max_reps_at_weight, since a heaviest weight or an estimate of zero means nothing. on conflict makes a retry harmless, and the returned kinds are what the API shows the user and what the squad feed later reads. Deleting a set removes its records through the cascade. When a set is edited, or whenever a recompute is needed, delete the user's records for the exercise and replay this statement over their non warmup sets in performed_at order.
 
 ```sql
 -- prepare record_check(uuid, text, uuid)
@@ -121,8 +121,8 @@ k as (
 insert into public.personal_records (user_id, exercise_id, set_id, kind, achieved_at)
 select n.user_id, n.exercise_id, n.id, k.kind, n.performed_at
 from n, b, k
-where (k.kind = 'max_weight' and (b.max_weight is null or n.weight_kg > b.max_weight))
-   or (k.kind = 'max_e1rm' and (b.max_e1rm is null or n.e1rm_kg > b.max_e1rm))
+where (k.kind = 'max_weight' and n.weight_kg > 0 and (b.max_weight is null or n.weight_kg > b.max_weight))
+   or (k.kind = 'max_e1rm' and n.weight_kg > 0 and (b.max_e1rm is null or n.e1rm_kg > b.max_e1rm))
    or (k.kind = 'max_reps_at_weight' and n.reps > b.reps_at_weight)
 on conflict (set_id, kind) do nothing
 returning kind;

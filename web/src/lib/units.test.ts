@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatWeight, fromKg } from "./units";
+import { estimateOneRepMaxKg, formatWeight, fromKg } from "./units";
 
 describe("units", () => {
   it("shows stored kilograms back as the pounds that were typed", () => {
@@ -9,5 +9,9 @@ describe("units", () => {
   it("rounds kilograms to the nearest quarter", () => {
     expect(fromKg(62.4, "kg")).toBe(62.5);
     expect(formatWeight(100, "kg")).toBe("100 kg");
+  });
+  it("estimates a one rep max the way the database does", () => {
+    expect(estimateOneRepMaxKg(61.235, 8)).toBe(77.564);
+    expect(estimateOneRepMaxKg(61.235, 15)).toBe(91.853);
   });
 });
