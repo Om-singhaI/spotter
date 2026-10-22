@@ -5,6 +5,7 @@ import ExercisesPage from "./pages/Exercises";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Account from "./pages/Account";
+import WorkoutPage from "./pages/Workout";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -16,6 +17,7 @@ export default function App() {
       <Route path="/signup" element={<Signup />} />
       <Route element={<RequireAuth />}>
         <Route path="/account" element={<Account />} />
+        <Route path="/workout" element={<WorkoutPage />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>

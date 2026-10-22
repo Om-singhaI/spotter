@@ -2,6 +2,7 @@ import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import { exercisesRouter } from "./exercises/router.js";
 import { meRouter } from "./me/router.js";
+import { workoutsRouter } from "./workouts/router.js";
 
 // The app is separate from the server so tests can import it without opening a port.
 export const app = express();
@@ -14,6 +15,7 @@ app.get("/health", (_req, res) => {
 
 app.use(exercisesRouter);
 app.use(meRouter);
+app.use(workoutsRouter);
 
 // Express 5 hands rejected promises from route handlers to this.
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
