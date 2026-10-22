@@ -26,9 +26,15 @@ export default function Home() {
       <p className="text-sm">
         API: <span className={color}>{api}</span>
       </p>
-      <div className="mt-4 flex gap-3">
-        <Link to="/exercises" className="rounded-full bg-red-600 px-5 py-2 font-semibold">
-          Browse the exercise library
+      <div className="mt-4 flex flex-wrap justify-center gap-3">
+        <Link to="/workout" className="rounded-full bg-red-600 px-5 py-2 font-semibold">
+          Log a workout
+        </Link>
+        <Link
+          to="/exercises"
+          className="rounded-full border border-zinc-700 px-5 py-2 font-semibold"
+        >
+          Exercise library
         </Link>
         <Link
           to={session ? "/account" : "/login"}
