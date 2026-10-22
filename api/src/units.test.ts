@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fromKg, toKg } from "./units.js";
+import { estimateOneRepMaxKg, fromKg, toKg } from "./units.js";
 
 describe("units", () => {
   it("stores pounds as kilograms with three decimals", () => {
@@ -17,5 +17,13 @@ describe("units", () => {
   });
   it("shows kilograms with two decimals at most", () => {
     expect(fromKg(61.235, "kg")).toBe(61.24);
+  });
+  it("estimates a one rep max the way the database does", () => {
+    // 135 lb for 8 is stored as 61.235 kg; Postgres computed 77.564 for that row
+    expect(estimateOneRepMaxKg(61.235, 8)).toBe(77.564);
+    // a tie: 61.235 * 1.5 = 91.8525, which Postgres rounds up
+    expect(estimateOneRepMaxKg(61.235, 15)).toBe(91.853);
+    expect(estimateOneRepMaxKg(100, 1)).toBe(103.333);
+    expect(estimateOneRepMaxKg(0, 10)).toBe(0);
   });
 });

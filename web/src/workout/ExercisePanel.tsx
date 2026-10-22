@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { apiDelete, apiGet, apiPost } from "../lib/api";
 import { formatWeight, fromKg, type Unit } from "../lib/units";
-import type { ExercisePick, WorkoutSet } from "./types";
+import { recordLabels, type Best, type ExercisePick, type WorkoutSet } from "./types";
 
 type Props = {
   workoutId: string;
@@ -18,6 +18,14 @@ function SetLine({ set, unit, faded }: { set: WorkoutSet; unit: Unit; faded?: bo
     <span className={faded ? "text-zinc-500" : ""}>
       {formatWeight(set.weight_kg, unit)} × {set.reps}
       {set.is_warmup && <span className="ml-2 text-xs text-zinc-500">warmup</span>}
+      {set.records.length > 0 && (
+        <span
+          title={recordLabels(set.records)}
+          className={`ml-2 rounded px-1.5 py-0.5 text-xs font-bold ${faded ? "bg-zinc-800 text-zinc-400" : "bg-red-600 text-white"}`}
+        >
+          PR<span className="sr-only">: {recordLabels(set.records)}</span>
+        </span>
+      )}
     </span>
   );
 }
@@ -32,12 +40,15 @@ export default function ExercisePanel({
   onBack,
 }: Props) {
   const [ghost, setGhost] = useState<WorkoutSet[] | "error" | null>(null);
+  const [best, setBest] = useState<Best | null | "error" | undefined>(undefined);
+  const bestRequest = useRef(0);
   const [weight, setWeight] = useState("");
   const [reps, setReps] = useState("");
   const [warmup, setWarmup] = useState(false);
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [celebrate, setCelebrate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadGhost = useCallback(() => {
@@ -53,7 +64,20 @@ export default function ExercisePanel({
     };
   }, [exercise.id, workoutId]);
 
+  // Only the newest request may update the best line, so a slow response from before a
+  // delete cannot overwrite the recomputed value.
+  const loadBest = useCallback(() => {
+    const id = ++bestRequest.current;
+    apiGet<{ best: Best | null }>(`/exercises/${encodeURIComponent(exercise.id)}/best`)
+      .then((data) => id === bestRequest.current && setBest(data.best))
+      .catch(() => id === bestRequest.current && setBest("error"));
+    return () => {
+      bestRequest.current++;
+    };
+  }, [exercise.id]);
+
   useEffect(loadGhost, [loadGhost]);
+  useEffect(loadBest, [loadBest]);
 
   // Prefill from the last set logged today, otherwise from last session's first set.
   // Only fills empty inputs, so it never replaces something the user typed.
@@ -72,6 +96,7 @@ export default function ExercisePanel({
     if (busy) return;
     setBusy(true);
     setError(null);
+    setCelebrate(null);
     try {
       const { set } = await apiPost<{ set: WorkoutSet }>(`/workouts/${workoutId}/sets`, {
         exercise_id: exercise.id,
@@ -82,6 +107,10 @@ export default function ExercisePanel({
       });
       onLogged(set);
       setWarmup(false);
+      if (set.records.length > 0) {
+        setCelebrate(recordLabels(set.records));
+        loadBest();
+      }
     } catch {
       setError("Could not save that set.");
     } finally {
@@ -102,6 +131,8 @@ export default function ExercisePanel({
     try {
       await apiDelete(`/sets/${set.id}`);
       onDeleted(set.id);
+      setCelebrate(null);
+      loadBest();
     } catch {
       setError("Could not remove that set.");
     } finally {
@@ -110,17 +141,42 @@ export default function ExercisePanel({
     }
   }
 
+  const todayBest = sets
+    .filter((s) => !s.is_warmup && s.weight_kg > 0)
+    .reduce((m, s) => Math.max(m, s.e1rm_kg), 0);
+
   const inputClass =
     "w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-center text-lg outline-none focus:border-zinc-600";
 
   return (
     <section className="rounded-2xl bg-zinc-900 p-4">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-1 flex items-center justify-between">
         <h2 className="text-lg font-bold">{exercise.name}</h2>
         <button type="button" onClick={onBack} className="min-h-11 px-3 text-sm text-zinc-400">
           Done
         </button>
       </div>
+
+      <p className="mb-3 text-sm text-zinc-400">
+        <span className="sr-only">Estimated one rep max: </span>
+        {best === undefined ? (
+          "\u00a0"
+        ) : best === "error" ? (
+          <>
+            Could not load your best.{" "}
+            <button type="button" onClick={loadBest} className="underline">
+              Retry
+            </button>
+          </>
+        ) : best === null ? (
+          "No estimated one rep max yet."
+        ) : (
+          `Best est. 1RM ${formatWeight(best.best_e1rm_kg, unit)} (${formatWeight(best.best_set.weight_kg, unit)} \u00d7 ${best.best_set.reps})`
+        )}
+        {todayBest > 0 && (
+          <span className="ml-2 text-zinc-300">\u00b7 today {formatWeight(todayBest, unit)}</span>
+        )}
+      </p>
 
       <h3 className="text-xs font-semibold tracking-widest text-zinc-500 uppercase">Last time</h3>
       {ghost === null ? (
@@ -209,6 +265,13 @@ export default function ExercisePanel({
         <input type="checkbox" checked={warmup} onChange={(e) => setWarmup(e.target.checked)} />
         warmup set
       </label>
+      <p
+        role="status"
+        aria-live="polite"
+        className={`mt-2 rounded-xl px-3 py-2 text-sm font-semibold text-red-300 ${celebrate ? "bg-red-600/20" : "sr-only"}`}
+      >
+        {celebrate ? `New record: ${celebrate}` : ""}
+      </p>
       {error && (
         <p role="alert" className="mt-2 text-sm text-red-400">
           {error}
