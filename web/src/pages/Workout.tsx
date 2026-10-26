@@ -13,7 +13,7 @@ import {
 } from "../workout/types";
 
 type Me = { weight_unit: Unit };
-type Summary = { exercises: number; sets: number; discarded: boolean };
+type Summary = { exercises: number; sets: number; records: number; discarded: boolean };
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
@@ -70,6 +70,7 @@ export default function WorkoutPage() {
       setFinished({
         exercises: groups.length,
         sets: current.sets.length,
+        records: current.sets.filter((s) => s.records.length > 0).length,
         discarded: result.discarded,
       });
       setCurrent({ workout: null, sets: [] });
@@ -86,8 +87,13 @@ export default function WorkoutPage() {
     setCurrent((c) => (c ? { ...c, sets: [...c.sets, set] } : c));
   }
 
+  // Drop the set at once, then reload from the server: deleting can hand a record to a
+  // later set, and only the server knows which.
   function deleted(setId: string) {
     setCurrent((c) => (c ? { ...c, sets: c.sets.filter((s) => s.id !== setId) } : c));
+    apiGet<CurrentWorkout>("/workouts/current")
+      .then(setCurrent)
+      .catch(() => {});
   }
 
   const workout = current?.workout ?? null;
@@ -115,7 +121,9 @@ export default function WorkoutPage() {
             <p role="status" className="text-zinc-300">
               {finished.discarded
                 ? "Nothing was logged, so nothing was saved."
-                : `Nice work. ${plural(finished.sets, "set")} across ${plural(finished.exercises, "exercise")}, saved.`}
+                : `Nice work. ${plural(finished.sets, "set")} across ${plural(finished.exercises, "exercise")}${
+                    finished.records > 0 ? `, ${plural(finished.records, "new record")}` : ""
+                  }, saved.`}
             </p>
           )}
           <button

@@ -5,13 +5,19 @@ import { AuthProvider } from "../auth/AuthProvider";
 import App from "../App";
 import { fakeSession, state } from "../test/fakeSupabase";
 import type { WorkoutSet } from "../workout/types";
+import { estimateOneRepMaxKg } from "../lib/units";
 
 const WORKOUT = {
   id: "11111111-1111-4111-8111-111111111111",
   started_at: "2026-10-19T10:00:00Z",
   finished_at: null,
 };
-const squatSet = (id: string, weight_kg: number, reps: number): WorkoutSet => ({
+const squatSet = (
+  id: string,
+  weight_kg: number,
+  reps: number,
+  records: string[] = [],
+): WorkoutSet => ({
   id,
   exercise_id: "Barbell_Squat",
   exercise_name: "Barbell Squat",
@@ -19,7 +25,9 @@ const squatSet = (id: string, weight_kg: number, reps: number): WorkoutSet => ({
   reps,
   rpe: null,
   is_warmup: false,
+  e1rm_kg: estimateOneRepMaxKg(weight_kg, reps),
   performed_at: "2026-10-19T10:05:00Z",
+  records,
 });
 
 // Routes the fetch stub by method and path so a page can talk to several endpoints.
@@ -30,10 +38,15 @@ function mockApi(handlers: Record<string, (body?: unknown) => unknown>) {
     const path = url.replace(/^\/api/, "").split("?")[0];
     const key = `${method} ${path}`;
     calls.push(key);
-    const handler = handlers[key];
+    const handler = handlers[key] ?? (path.endsWith("/best") ? () => ({ best: null }) : undefined);
     if (!handler) return new Response("not found", { status: 404 });
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-    const result = handler(body);
+    let result: unknown;
+    try {
+      result = handler(body);
+    } catch {
+      return new Response("boom", { status: 500 });
+    }
     return result === undefined ? new Response(null, { status: 204 }) : Response.json(result);
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -171,14 +184,20 @@ describe("WorkoutPage", () => {
   });
 
   it("removes a set after a confirming second tap", async () => {
+    let removed = false;
     const { calls } = mockApi({
       "GET /me": () => me,
       "GET /workouts/current": () => ({
         workout: WORKOUT,
-        sets: [squatSet("s1", 61.235, 8), squatSet("s2", 61.235, 7)],
+        sets: removed
+          ? [squatSet("s1", 61.235, 8)]
+          : [squatSet("s1", 61.235, 8), squatSet("s2", 61.235, 7)],
       }),
       "GET /exercises/Barbell_Squat/ghost": () => ({ sets: [] }),
-      "DELETE /sets/s2": () => undefined,
+      "DELETE /sets/s2": () => {
+        removed = true;
+        return undefined;
+      },
     });
     renderWorkout();
     fireEvent.click(await screen.findByRole("button", { name: /Barbell Squat/ }));
@@ -235,5 +254,106 @@ describe("WorkoutPage", () => {
     renderWorkout();
     fireEvent.click(await screen.findByRole("button", { name: "Add exercise" }));
     expect(await screen.findByText("Nothing matches that.")).toBeInTheDocument();
+  });
+
+  it("celebrates a record, badges the set, and reloads the best line", async () => {
+    let best: unknown = null;
+    mockApi({
+      "GET /me": () => me,
+      "GET /workouts/current": () => ({ workout: WORKOUT, sets: [] }),
+      "GET /exercises": () => ({ exercises: [{ id: "Barbell_Squat", name: "Barbell Squat" }] }),
+      "GET /exercises/Barbell_Squat/ghost": () => ({ sets: [] }),
+      "GET /exercises/Barbell_Squat/best": () => ({ best }),
+      "POST /workouts/11111111-1111-4111-8111-111111111111/sets": () => {
+        best = {
+          best_e1rm_kg: 77.564,
+          best_weight_kg: 61.235,
+          best_set: { weight_kg: 61.235, reps: 8, performed_at: "2026-10-19T10:05:00Z" },
+        };
+        return { set: squatSet("s9", 61.235, 8, ["max_e1rm", "max_weight"]) };
+      },
+    });
+    renderWorkout();
+    fireEvent.click(await screen.findByRole("button", { name: "Add exercise" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Barbell Squat" }));
+    expect(await screen.findByText("No estimated one rep max yet.")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Weight/), { target: { value: "135" } });
+    fireEvent.change(screen.getByLabelText("Reps"), { target: { value: "8" } });
+    fireEvent.click(screen.getByRole("button", { name: "Log set" }));
+    expect(
+      await screen.findByText(/New record: best estimated one rep max, heaviest weight/),
+    ).toBeInTheDocument();
+    expect(await screen.findByText(/Best est\. 1RM 171 lb \(135 lb × 8\)/)).toBeInTheDocument();
+    const today = screen.getByRole("list", { name: "Today" });
+    expect(within(today).getByText(/PR/)).toHaveTextContent(
+      "PR: best estimated one rep max, heaviest weight",
+    );
+  });
+
+  it("reports when the best cannot be loaded instead of claiming there is none", async () => {
+    mockApi({
+      "GET /me": () => me,
+      "GET /workouts/current": () => ({ workout: WORKOUT, sets: [] }),
+      "GET /exercises": () => ({ exercises: [{ id: "Barbell_Squat", name: "Barbell Squat" }] }),
+      "GET /exercises/Barbell_Squat/ghost": () => ({ sets: [] }),
+      "GET /exercises/Barbell_Squat/best": () => {
+        throw new Error("boom");
+      },
+    });
+    renderWorkout();
+    fireEvent.click(await screen.findByRole("button", { name: "Add exercise" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Barbell Squat" }));
+    expect(await screen.findByText(/Could not load your best/)).toBeInTheDocument();
+  });
+
+  it("reloads the workout after a delete so recomputed records show", async () => {
+    let deleted = false;
+    mockApi({
+      "GET /me": () => me,
+      "GET /workouts/current": () =>
+        deleted
+          ? { workout: WORKOUT, sets: [squatSet("s2", 61.235, 7, ["max_e1rm", "max_weight"])] }
+          : {
+              workout: WORKOUT,
+              sets: [
+                squatSet("s1", 61.235, 8, ["max_e1rm", "max_weight"]),
+                squatSet("s2", 61.235, 7),
+              ],
+            },
+      "GET /exercises/Barbell_Squat/ghost": () => ({ sets: [] }),
+      "DELETE /sets/s1": () => {
+        deleted = true;
+        return undefined;
+      },
+    });
+    renderWorkout();
+    fireEvent.click(await screen.findByRole("button", { name: /Barbell Squat/ }));
+    const today = await screen.findByRole("list", { name: "Today" });
+    expect(within(today).getAllByRole("listitem")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Remove set 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm removing set 1" }));
+    await waitFor(() => expect(within(today).getAllByRole("listitem")).toHaveLength(1));
+    // the remaining set inherited the records once the server recomputed them
+    await waitFor(() => expect(within(today).getByText(/PR/)).toBeInTheDocument());
+  });
+
+  it("counts records in the finish summary", async () => {
+    mockApi({
+      "GET /me": () => me,
+      "GET /workouts/current": () => ({
+        workout: WORKOUT,
+        sets: [squatSet("s1", 61.235, 8, ["max_weight"]), squatSet("s2", 61.235, 7)],
+      }),
+      "POST /workouts/11111111-1111-4111-8111-111111111111/finish": () => ({
+        workout: { ...WORKOUT, finished_at: "x" },
+        discarded: false,
+      }),
+    });
+    renderWorkout();
+    fireEvent.click(await screen.findByRole("button", { name: "Finish workout" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tap again to finish" }));
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "2 sets across 1 exercise, 1 new record, saved.",
+    );
   });
 });

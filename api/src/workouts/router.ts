@@ -118,3 +118,7 @@ workoutsRouter.get("/exercises/:id/ghost", requireUser, async (req, res) => {
   );
   res.json({ sets });
 });
+
+workoutsRouter.get("/exercises/:id/best", requireUser, async (req, res) => {
+  res.json({ best: await repo.best(currentUser(res).id, String(req.params.id)) });
+});

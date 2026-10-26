@@ -12,6 +12,7 @@ vi.mock("./repo.js", () => ({
   addSet: vi.fn(),
   deleteSet: vi.fn(),
   ghostRow: vi.fn(async () => []),
+  best: vi.fn(async () => null),
 }));
 
 vi.mock("../me/repo.js", () => ({
@@ -120,7 +121,9 @@ describe("sets", () => {
       reps: 8,
       rpe: null,
       is_warmup: false,
+      e1rm_kg: 77.564,
       performed_at: new Date(),
+      records: ["max_e1rm", "max_weight"],
     });
     const res = await request(app)
       .post(`/workouts/${WORKOUT_ID}/sets`)
@@ -134,6 +137,7 @@ describe("sets", () => {
       isWarmup: false,
     });
     expect(res.body.set.exercise_name).toBe("Barbell Squat");
+    expect(res.body.set.records).toEqual(["max_e1rm", "max_weight"]);
   });
 
   it("refuses a set on a workout that is not the open one", async () => {
@@ -191,5 +195,21 @@ describe("ghost row", () => {
     expect(repo.ghostRow).toHaveBeenCalledWith(USER_ID, "Barbell_Squat", WORKOUT_ID);
     await request(app).get("/exercises/Barbell_Squat/ghost").set("Authorization", auth);
     expect(repo.ghostRow).toHaveBeenLastCalledWith(USER_ID, "Barbell_Squat", null);
+  });
+});
+
+describe("best", () => {
+  it("returns the all time bests for an exercise", async () => {
+    vi.mocked(repo.best).mockResolvedValueOnce({
+      best_e1rm_kg: 78.925,
+      best_weight_kg: 65.771,
+      best_set: { weight_kg: 65.771, reps: 6, performed_at: new Date("2026-10-19T10:10:00Z") },
+    });
+    const res = await request(app).get("/exercises/Barbell_Squat/best").set("Authorization", auth);
+    expect(res.status).toBe(200);
+    expect(repo.best).toHaveBeenCalledWith(USER_ID, "Barbell_Squat");
+    expect(res.body.best.best_e1rm_kg).toBe(78.925);
+    const none = await request(app).get("/exercises/Nope/best").set("Authorization", auth);
+    expect(none.body).toEqual({ best: null });
   });
 });
