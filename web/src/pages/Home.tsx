@@ -31,6 +31,12 @@ export default function Home() {
           Log a workout
         </Link>
         <Link
+          to="/progress"
+          className="rounded-full border border-zinc-700 px-5 py-2 font-semibold"
+        >
+          Progress
+        </Link>
+        <Link
           to="/exercises"
           className="rounded-full border border-zinc-700 px-5 py-2 font-semibold"
         >
