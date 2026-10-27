@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { apiDelete, apiGet, apiPost } from "../lib/api";
 import { formatWeight, fromKg, type Unit } from "../lib/units";
 import { recordLabels, type Best, type ExercisePick, type WorkoutSet } from "./types";
@@ -152,9 +153,17 @@ export default function ExercisePanel({
     <section className="rounded-2xl bg-zinc-900 p-4">
       <div className="mb-1 flex items-center justify-between">
         <h2 className="text-lg font-bold">{exercise.name}</h2>
-        <button type="button" onClick={onBack} className="min-h-11 px-3 text-sm text-zinc-400">
-          Done
-        </button>
+        <span className="flex items-center gap-1">
+          <Link
+            to={`/progress?exercise=${encodeURIComponent(exercise.id)}`}
+            className="flex min-h-11 items-center px-3 text-sm text-zinc-400"
+          >
+            Chart
+          </Link>
+          <button type="button" onClick={onBack} className="min-h-11 px-3 text-sm text-zinc-400">
+            Done
+          </button>
+        </span>
       </div>
 
       <p className="mb-3 text-sm text-zinc-400">

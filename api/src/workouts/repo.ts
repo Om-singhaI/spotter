@@ -260,3 +260,11 @@ export async function best(userId: string, exerciseId: string): Promise<Best | n
     best_set: { weight_kg: row.weight_kg, reps: row.reps, performed_at: row.performed_at },
   };
 }
+
+// Full rebuild of one exercise's records, for seeds and admin repair.
+export function rebuildRecords(userId: string, exerciseId: string): Promise<void> {
+  return sql.begin(async (tx) => {
+    await lockRecords(tx, userId, exerciseId);
+    await recomputeRecords(tx, userId, exerciseId, new Date(0));
+  });
+}

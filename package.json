@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
-    "seed": "npm run seed -w api"
+    "seed": "npm run seed -w api",
+    "seed:demo": "npm run seed:demo -w api --"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
