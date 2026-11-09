@@ -33,6 +33,15 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
   return parse<T>(res, path);
 }
 
+export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(apiBase + path, {
+    method: "PATCH",
+    headers: await headers({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  });
+  return parse<T>(res, path);
+}
+
 export async function apiDelete(path: string): Promise<void> {
   const res = await fetch(apiBase + path, { method: "DELETE", headers: await headers() });
   await parse<void>(res, path);
