@@ -12,14 +12,14 @@ import {
   type WorkoutSet,
 } from "../workout/types";
 
-type Me = { weight_unit: Unit };
+type Me = { id: string; weight_unit: Unit };
 type Summary = { exercises: number; sets: number; records: number; discarded: boolean };
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 export default function WorkoutPage() {
   // null until the profile answers, so a kg lifter never sees or logs in pounds
-  const [unit, setUnit] = useState<Unit | null>(null);
+  const [profile, setProfile] = useState<Me | null>(null);
   const [current, setCurrent] = useState<CurrentWorkout | null>(null);
   const [picking, setPicking] = useState(false);
   const [selected, setSelected] = useState<ExercisePick | null>(null);
@@ -31,7 +31,7 @@ export default function WorkoutPage() {
 
   useEffect(() => {
     apiGet<Me>("/me")
-      .then((me) => setUnit(me.weight_unit))
+      .then(setProfile)
       .catch(() => setError("Could not load your settings."));
     apiGet<CurrentWorkout>("/workouts/current")
       .then(setCurrent)
@@ -98,6 +98,7 @@ export default function WorkoutPage() {
 
   const workout = current?.workout ?? null;
   const groups = groupByExercise(current?.sets ?? []);
+  const unit = profile?.weight_unit ?? null;
   const ready = unit !== null;
 
   return (
@@ -139,11 +140,12 @@ export default function WorkoutPage() {
 
       {workout && !ready && !error && <p className="text-zinc-500">Loading your settings…</p>}
 
-      {workout && ready && selected && (
+      {workout && profile && selected && (
         <ExercisePanel
           workoutId={workout.id}
           exercise={selected}
-          unit={unit}
+          unit={profile.weight_unit}
+          userId={profile.id}
           sets={(current?.sets ?? []).filter((s) => s.exercise_id === selected.id)}
           onLogged={logged}
           onDeleted={deleted}
