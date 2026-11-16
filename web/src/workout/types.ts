@@ -4,6 +4,7 @@ export type WorkoutSet = {
   id: string;
   exercise_id: string;
   exercise_name: string;
+  exercise_equipment?: string | null;
   weight_kg: number;
   reps: number;
   rpe: number | null;
@@ -15,7 +16,7 @@ export type WorkoutSet = {
 
 export type CurrentWorkout = { workout: Workout | null; sets: WorkoutSet[] };
 
-export type ExercisePick = { id: string; name: string };
+export type ExercisePick = { id: string; name: string; equipment?: string | null };
 
 // Sets grouped by exercise in the order the exercises first appeared in the workout.
 export function groupByExercise(
@@ -27,7 +28,7 @@ export function groupByExercise(
     if (g) g.sets.push(s);
     else
       groups.set(s.exercise_id, {
-        exercise: { id: s.exercise_id, name: s.exercise_name },
+        exercise: { id: s.exercise_id, name: s.exercise_name, equipment: s.exercise_equipment },
         sets: [s],
       });
   }

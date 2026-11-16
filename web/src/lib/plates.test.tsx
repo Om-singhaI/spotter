@@ -8,7 +8,7 @@ describe("calculatePlateLoad", () => {
     expect(calculatePlateLoad(225, standard)).toEqual({
       platesPerSide: [{ weight: 45, count: 2 }],
       loadedWeight: 225,
-      shortfall: 0,
+      difference: 0,
     });
   });
 
@@ -19,7 +19,7 @@ describe("calculatePlateLoad", () => {
         { weight: 45, count: 1 },
       ],
       loadedWeight: 245,
-      shortfall: 0,
+      difference: 0,
     });
   });
 
@@ -27,28 +27,61 @@ describe("calculatePlateLoad", () => {
     expect(calculatePlateLoad(145, { barWeight: 45, availablePlates: [35, 25, 10] })).toEqual({
       platesPerSide: [{ weight: 25, count: 2 }],
       loadedWeight: 145,
-      shortfall: 0,
+      difference: 0,
     });
   });
 
-  it("shows the closest achievable load without exceeding the target", () => {
+  it("shows a closest load below the target", () => {
     expect(calculatePlateLoad(137, { barWeight: 45, availablePlates: [45, 10] })).toEqual({
       platesPerSide: [{ weight: 45, count: 1 }],
       loadedWeight: 135,
-      shortfall: 2,
+      difference: -2,
     });
+  });
+
+  it("chooses a closer load above the target", () => {
+    expect(calculatePlateLoad(139, standard)).toEqual({
+      platesPerSide: [
+        { weight: 45, count: 1 },
+        { weight: 2.5, count: 1 },
+      ],
+      loadedWeight: 140,
+      difference: 1,
+    });
+  });
+
+  it("uses the fewest plates even with unsorted denominations", () => {
+    expect(calculatePlateLoad(225, { barWeight: 45, availablePlates: [5, 10, 45, 25] })).toEqual({
+      platesPerSide: [{ weight: 45, count: 2 }],
+      loadedWeight: 225,
+      difference: 0,
+    });
+  });
+
+  it("prefers fewer plates when two suggestions are equally close", () => {
+    expect(calculatePlateLoad(140, { barWeight: 45, availablePlates: [45, 10, 5] })).toEqual({
+      platesPerSide: [{ weight: 45, count: 1 }],
+      loadedWeight: 135,
+      difference: -5,
+    });
+  });
+
+  it("rounds fractional bar weights instead of displaying floating point noise", () => {
+    const result = calculatePlateLoad(315, { barWeight: 44.09, availablePlates: [45, 10] });
+    expect(result?.loadedWeight).toBe(314.09);
+    expect(result?.difference).toBe(-0.91);
   });
 
   it("handles an empty bar and decimal kilogram plates", () => {
     expect(calculatePlateLoad(20, { barWeight: 20, availablePlates: [0.5] })).toEqual({
       platesPerSide: [],
       loadedWeight: 20,
-      shortfall: 0,
+      difference: 0,
     });
     expect(calculatePlateLoad(21, { barWeight: 20, availablePlates: [0.5] })).toEqual({
       platesPerSide: [{ weight: 0.5, count: 1 }],
       loadedWeight: 21,
-      shortfall: 0,
+      difference: 0,
     });
   });
 

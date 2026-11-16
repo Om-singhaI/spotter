@@ -272,6 +272,40 @@ describe("WorkoutPage", () => {
     expect(screen.queryByText(/First time doing this/)).not.toBeInTheDocument();
   });
 
+  it("shows the preview for equipment=barbell even when the exercise name omits barbell", async () => {
+    mockApi({
+      "GET /me": () => me,
+      "GET /workouts/current": () => ({ workout: WORKOUT, sets: [] }),
+      "GET /exercises": () => ({
+        exercises: [{ id: "Romanian_Deadlift", name: "Romanian Deadlift", equipment: "barbell" }],
+      }),
+      "GET /exercises/Romanian_Deadlift/ghost": () => ({ sets: [] }),
+    });
+    renderWorkout();
+    fireEvent.click(await screen.findByRole("button", { name: "Add exercise" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Romanian Deadlift" }));
+    expect(await screen.findByRole("region", { name: "Plate calculator" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Weight/), { target: { value: "139" } });
+    expect(screen.getByText("Closest available load: 140 lb (1 lb over).")).toBeInTheDocument();
+  });
+
+  it("keeps the barbell preview for a saved exercise reopened after refresh", async () => {
+    const set = {
+      ...squatSet("s1", 61.235, 8),
+      exercise_id: "Romanian_Deadlift",
+      exercise_name: "Romanian Deadlift",
+      exercise_equipment: "barbell",
+    };
+    mockApi({
+      "GET /me": () => me,
+      "GET /workouts/current": () => ({ workout: WORKOUT, sets: [set] }),
+      "GET /exercises/Romanian_Deadlift/ghost": () => ({ sets: [] }),
+    });
+    renderWorkout();
+    fireEvent.click(await screen.findByRole("button", { name: /Romanian Deadlift/ }));
+    expect(await screen.findByRole("region", { name: "Plate calculator" })).toBeInTheDocument();
+  });
+
   it("keeps the form hidden until the unit is known", async () => {
     mockApi({
       "GET /workouts/current": () => ({ workout: WORKOUT, sets: [] }),

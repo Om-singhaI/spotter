@@ -145,7 +145,8 @@ export default function ExercisePanel({
     }
   }
 
-  const showsBarbell = /\bbarbell\b/i.test(exercise.name);
+  const showsBarbell =
+    /\bbarbell\b/i.test(exercise.equipment ?? "") || /\bbarbell\b/i.test(exercise.name);
   const plateSettings = showsBarbell ? loadPlateSettings(userId, unit) : null;
 
   const todayBest = sets
@@ -268,13 +269,13 @@ export default function ExercisePanel({
           Log set
         </button>
       </form>
-      {plateSettings && (
-        <BarbellPreview weightInput={weight} unit={unit} settings={plateSettings} />
-      )}
       <label className="mt-2 flex min-h-11 items-center gap-2 text-xs text-zinc-400">
         <input type="checkbox" checked={warmup} onChange={(e) => setWarmup(e.target.checked)} />
         warmup set
       </label>
+      {plateSettings && (
+        <BarbellPreview weightInput={weight} unit={unit} settings={plateSettings} />
+      )}
       <p
         role="status"
         aria-live="polite"

@@ -4,15 +4,21 @@ export type LoadedPlate = { weight: number; count: number };
 export type PlateLoad = {
   platesPerSide: LoadedPlate[];
   loadedWeight: number;
-  shortfall: number;
+  // Signed difference between the suggested and requested weight.
+  // Positive means over, negative means under, zero means exact.
+  difference: number;
 };
 
-// A preview only: never change the weight the user actually records.
-// All selectable plates are multiples of 0.25, so integer quarter-units
-// avoid rounding errors and make exact combinations possible.
+// All selectable plates are multiples of 0.25. Integer quarter-units avoid
+// floating-point errors in the combination search.
 const QUARTERS = 4;
 const MAX_PREVIEW_WEIGHT = 5000;
 const UNREACHABLE = 1_000_000;
+
+// Bar weight and entered targets can have other decimal precision.
+function roundWeight(value: number): number {
+  return Math.round((value + Number.EPSILON) * 1000) / 1000;
+}
 
 export function calculatePlateLoad(target: number, settings: PlateSettings): PlateLoad | null {
   const { barWeight } = settings;
@@ -32,16 +38,19 @@ export function calculatePlateLoad(target: number, settings: PlateSettings): Pla
     .sort((a, b) => b - a)
     .map((weight) => ({ weight, ticks: Math.round(weight * QUARTERS) }))
     .filter(({ weight, ticks }) => Math.abs(weight * QUARTERS - ticks) < 1e-8);
-
   if (denominations.length === 0) return null;
 
-  // Symmetric loading: the target minus the bar is divided across BOTH sleeves.
-  const targetSideTicks = Math.max(0, Math.floor(((target - barWeight) / 2) * QUARTERS + 1e-8));
-  const fewest = new Int32Array(targetSideTicks + 1).fill(UNREACHABLE);
-  const lastPlate = new Int16Array(targetSideTicks + 1).fill(-1);
+  // Every load is symmetric: (total - bar) / 2 goes on each sleeve.
+  const requestedSideTicks = ((target - barWeight) / 2) * QUARTERS;
+  const smallestPlateTicks = Math.min(...denominations.map((plate) => plate.ticks));
+  // A multiple of the smallest plate always supplies an achievable load above
+  // the target. Search through it so "closest" considers BOTH directions.
+  const searchLimit = Math.ceil(requestedSideTicks) + smallestPlateTicks;
+  const fewest = new Int32Array(searchLimit + 1).fill(UNREACHABLE);
+  const lastPlate = new Int16Array(searchLimit + 1).fill(-1);
   fewest[0] = 0;
 
-  for (let total = 1; total <= targetSideTicks; total++) {
+  for (let total = 1; total <= searchLimit; total++) {
     denominations.forEach(({ ticks }, index) => {
       if (ticks > total || fewest[total - ticks] === UNREACHABLE) return;
       const count = fewest[total - ticks] + 1;
@@ -52,9 +61,22 @@ export function calculatePlateLoad(target: number, settings: PlateSettings): Pla
     });
   }
 
-  // If the target cannot be loaded, use the greatest weight below the target.
-  let loadedSideTicks = targetSideTicks;
-  while (loadedSideTicks > 0 && fewest[loadedSideTicks] === UNREACHABLE) loadedSideTicks--;
+  // Pick the nearest achievable load. Prefer fewer plates for an equally
+  // close result; on a remaining tie, prefer not exceeding the target.
+  let loadedSideTicks = 0;
+  for (let ticks = 1; ticks <= searchLimit; ticks++) {
+    if (fewest[ticks] === UNREACHABLE) continue;
+    const distance = Math.abs(ticks - requestedSideTicks);
+    const bestDistance = Math.abs(loadedSideTicks - requestedSideTicks);
+    if (
+      distance < bestDistance - 1e-8 ||
+      (Math.abs(distance - bestDistance) <= 1e-8 &&
+        (fewest[ticks] < fewest[loadedSideTicks] ||
+          (fewest[ticks] === fewest[loadedSideTicks] && ticks < loadedSideTicks)))
+    ) {
+      loadedSideTicks = ticks;
+    }
+  }
 
   const counts = new Map<number, number>();
   for (let remaining = loadedSideTicks; remaining > 0;) {
@@ -63,12 +85,12 @@ export function calculatePlateLoad(target: number, settings: PlateSettings): Pla
     remaining -= denomination.ticks;
   }
 
-  const loadedWeight = barWeight + (2 * loadedSideTicks) / QUARTERS;
+  const loadedWeight = roundWeight(barWeight + (2 * loadedSideTicks) / QUARTERS);
   return {
     platesPerSide: denominations
       .filter(({ weight }) => counts.has(weight))
       .map(({ weight }) => ({ weight, count: counts.get(weight)! })),
     loadedWeight,
-    shortfall: Math.max(0, Math.round((target - loadedWeight) * 1000) / 1000),
+    difference: roundWeight(loadedWeight - target),
   };
 }

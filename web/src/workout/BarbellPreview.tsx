@@ -143,10 +143,10 @@ export default function BarbellPreview({ weightInput, unit, settings }: Props) {
           <p className="mt-1 text-center text-xs text-zinc-400">
             Each side: {actualPerSideCount === 0 ? "No plates" : plateList}
           </p>
-          {load.shortfall > 0 && (
+          {load.difference !== 0 && (
             <p role="status" className="mt-2 text-center text-xs text-amber-300">
-              Closest load without exceeding target: {load.loadedWeight} {unit} ({load.shortfall}{" "}
-              {unit} short).
+              Closest available load: {load.loadedWeight} {unit} ({Math.abs(load.difference)} {unit}{" "}
+              {load.difference > 0 ? "over" : "short"}).
             </p>
           )}
         </>
