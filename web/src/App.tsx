@@ -6,6 +6,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Account from "./pages/Account";
 import WorkoutPage from "./pages/Workout";
+import HistoryPage from "./pages/History";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
       <Route element={<RequireAuth />}>
         <Route path="/account" element={<Account />} />
         <Route path="/workout" element={<WorkoutPage />} />
+        <Route path="/history" element={<HistoryPage />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>

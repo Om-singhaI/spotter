@@ -87,6 +87,51 @@ export async function discardIfEmpty(userId: string, workoutId: string): Promise
   return rows.length > 0;
 }
 
+export type WorkoutHistoryEntry = Workout & {
+  exercise_count: number;
+  set_count: number;
+  record_count: number;
+};
+
+export type WorkoutHistoryPage = { workouts: WorkoutHistoryEntry[]; has_more: boolean };
+
+// Only finished workouts appear in history. Load one extra row to signal if another
+// page exists, and count distinct record-earning sets (not record kinds).
+export async function completedWorkouts(
+  userId: string,
+  limit: number,
+  offset: number,
+): Promise<WorkoutHistoryPage> {
+  const rows = await sql<WorkoutHistoryEntry[]>`
+    select w.id, w.started_at, w.finished_at,
+           count(distinct s.exercise_id)::int as exercise_count,
+           count(distinct s.id)::int as set_count,
+           count(distinct r.set_id)::int as record_count
+    from (
+      select id, user_id, started_at, finished_at
+      from public.workouts
+      where user_id = ${userId} and finished_at is not null
+      order by started_at desc, id desc
+      limit ${limit + 1} offset ${offset}
+    ) w
+    left join public.workout_sets s on s.workout_id = w.id and s.user_id = w.user_id
+    left join public.personal_records r on r.set_id = s.id and r.user_id = w.user_id
+    group by w.id, w.user_id, w.started_at, w.finished_at
+    order by w.started_at desc, w.id desc
+  `;
+  return { workouts: rows.slice(0, limit), has_more: rows.length > limit };
+}
+
+// Never expose someone else's workout or an unfinished workout through history.
+export async function completedWorkout(userId: string, workoutId: string): Promise<Workout | null> {
+  const [row] = await sql<Workout[]>`
+    select id, started_at, finished_at
+    from public.workouts
+    where id = ${workoutId} and user_id = ${userId} and finished_at is not null
+  `;
+  return row ?? null;
+}
+
 export function workoutSets(userId: string, workoutId: string): Promise<WorkoutSet[]> {
   return setRows(sql, sql`s.workout_id = ${workoutId} and s.user_id = ${userId}`);
 }
