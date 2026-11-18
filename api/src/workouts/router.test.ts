@@ -148,9 +148,7 @@ describe("workout history", () => {
     expect(repo.completedWorkouts).toHaveBeenCalledWith(USER_ID, 5, 10);
     vi.mocked(repo.completedWorkouts).mockClear();
     for (const query of ["limit=0", "limit=51", "limit=nope", "offset=-1", "offset=1.5"]) {
-      const res = await request(app)
-        .get(`/workouts/history?${query}`)
-        .set("Authorization", auth);
+      const res = await request(app).get(`/workouts/history?${query}`).set("Authorization", auth);
       expect(res.status).toBe(400);
     }
     expect(repo.completedWorkouts).not.toHaveBeenCalled();
