@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { apiDelete, apiGet, apiPost } from "../lib/api";
 import { formatWeight, fromKg, type Unit } from "../lib/units";
+import { loadPlateSettings } from "../lib/plateSettings";
+import BarbellPreview from "./BarbellPreview";
 import { recordLabels, type Best, type ExercisePick, type WorkoutSet } from "./types";
 
 type Props = {
   workoutId: string;
   exercise: ExercisePick;
   unit: Unit;
+  userId: string;
   sets: WorkoutSet[];
   onLogged: (set: WorkoutSet) => void;
   onDeleted: (setId: string) => void;
@@ -34,6 +37,7 @@ export default function ExercisePanel({
   workoutId,
   exercise,
   unit,
+  userId,
   sets,
   onLogged,
   onDeleted,
@@ -140,6 +144,10 @@ export default function ExercisePanel({
       setConfirming(null);
     }
   }
+
+  const showsBarbell =
+    /\bbarbell\b/i.test(exercise.equipment ?? "") || /\bbarbell\b/i.test(exercise.name);
+  const plateSettings = showsBarbell ? loadPlateSettings(userId, unit) : null;
 
   const todayBest = sets
     .filter((s) => !s.is_warmup && s.weight_kg > 0)
@@ -265,6 +273,9 @@ export default function ExercisePanel({
         <input type="checkbox" checked={warmup} onChange={(e) => setWarmup(e.target.checked)} />
         warmup set
       </label>
+      {plateSettings && (
+        <BarbellPreview weightInput={weight} unit={unit} settings={plateSettings} />
+      )}
       <p
         role="status"
         aria-live="polite"

@@ -9,10 +9,16 @@ vi.mock("./repo.js", () => ({
     weight_unit: "lb",
     share_numbers: false,
   })),
+  updateWeightUnit: vi.fn(async (id: string, unit: "lb" | "kg") => ({
+    id,
+    display_name: "Ben",
+    weight_unit: unit,
+    share_numbers: false,
+  })),
 }));
 
 import { app } from "../app.js";
-import { ensureProfile } from "./repo.js";
+import { ensureProfile, updateWeightUnit } from "./repo.js";
 
 const secret = new TextEncoder().encode("test-secret-that-is-at-least-32-characters-long");
 const USER_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -94,4 +100,38 @@ describe("GET /me", () => {
     expect(ensureProfile).toHaveBeenLastCalledWith(USER_ID, "\u{1F4AA}".repeat(40));
   });
   void exportJWK;
+});
+
+describe("PATCH /me", () => {
+  beforeEach(() => {
+    vi.mocked(ensureProfile).mockClear();
+    vi.mocked(updateWeightUnit).mockClear();
+  });
+
+  it("requires authentication", async () => {
+    const res = await request(app).patch("/me").send({ weight_unit: "kg" });
+    expect(res.status).toBe(401);
+    expect(updateWeightUnit).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid units and unexpected fields", async () => {
+    const t = await token({ email: "ben@example.com" });
+    for (const body of [{ weight_unit: "stone" }, { weight_unit: "kg", share_numbers: true }]) {
+      const res = await request(app).patch("/me").set("Authorization", `Bearer ${t}`).send(body);
+      expect(res.status).toBe(400);
+    }
+    expect(updateWeightUnit).not.toHaveBeenCalled();
+  });
+
+  it("saves the unit only for the authenticated user", async () => {
+    const t = await token({ email: "ben@example.com" });
+    const res = await request(app)
+      .patch("/me")
+      .set("Authorization", `Bearer ${t}`)
+      .send({ weight_unit: "kg" });
+    expect(res.status).toBe(200);
+    expect(ensureProfile).toHaveBeenCalledWith(USER_ID, "ben");
+    expect(updateWeightUnit).toHaveBeenCalledWith(USER_ID, "kg");
+    expect(res.body).toMatchObject({ id: USER_ID, weight_unit: "kg", email: "ben@example.com" });
+  });
 });

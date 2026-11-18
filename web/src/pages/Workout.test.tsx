@@ -136,6 +136,42 @@ describe("WorkoutPage", () => {
     expect(within(today).getByText(/140 lb × 9/)).toBeInTheDocument();
   });
 
+  it("previews custom barbell plates from the account settings without changing the workout input", async () => {
+    localStorage.setItem(
+      "spotter:plates:v1:x:lb",
+      JSON.stringify({ barWeight: 45, availablePlates: [55, 45, 10] }),
+    );
+    mockApi({
+      "GET /me": () => me,
+      "GET /workouts/current": () => ({ workout: WORKOUT, sets: [] }),
+      "GET /exercises": () => ({ exercises: [{ id: "Barbell_Squat", name: "Barbell Squat" }] }),
+      "GET /exercises/Barbell_Squat/ghost": () => ({ sets: [] }),
+    });
+    renderWorkout();
+    fireEvent.click(await screen.findByRole("button", { name: "Add exercise" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Barbell Squat" }));
+    const preview = screen.getByRole("region", { name: "Plate calculator" });
+    const weight = screen.getByLabelText(/Weight/) as HTMLInputElement;
+    fireEvent.change(weight, { target: { value: "245" } });
+    expect(within(preview).getByText("245 lb total · 45 lb bar")).toBeInTheDocument();
+    expect(within(preview).getByText("Each side: 55 lb × 1, 45 lb × 1")).toBeInTheDocument();
+    expect(weight.value).toBe("245");
+    localStorage.clear();
+  });
+
+  it("does not show a plate calculator for a non-barbell exercise", async () => {
+    mockApi({
+      "GET /me": () => me,
+      "GET /workouts/current": () => ({ workout: WORKOUT, sets: [] }),
+      "GET /exercises": () => ({ exercises: [{ id: "Bench_Dips", name: "Bench Dips" }] }),
+      "GET /exercises/Bench_Dips/ghost": () => ({ sets: [] }),
+    });
+    renderWorkout();
+    fireEvent.click(await screen.findByRole("button", { name: "Add exercise" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Bench Dips" }));
+    expect(screen.queryByRole("region", { name: "Plate calculator" })).not.toBeInTheDocument();
+  });
+
   it("says it is the first time when there is no earlier session", async () => {
     mockApi({
       "GET /me": () => me,
@@ -234,6 +270,40 @@ describe("WorkoutPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Barbell Squat" }));
     expect(await screen.findByText(/Could not load last session/)).toBeInTheDocument();
     expect(screen.queryByText(/First time doing this/)).not.toBeInTheDocument();
+  });
+
+  it("shows the preview for equipment=barbell even when the exercise name omits barbell", async () => {
+    mockApi({
+      "GET /me": () => me,
+      "GET /workouts/current": () => ({ workout: WORKOUT, sets: [] }),
+      "GET /exercises": () => ({
+        exercises: [{ id: "Romanian_Deadlift", name: "Romanian Deadlift", equipment: "barbell" }],
+      }),
+      "GET /exercises/Romanian_Deadlift/ghost": () => ({ sets: [] }),
+    });
+    renderWorkout();
+    fireEvent.click(await screen.findByRole("button", { name: "Add exercise" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Romanian Deadlift" }));
+    expect(await screen.findByRole("region", { name: "Plate calculator" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Weight/), { target: { value: "139" } });
+    expect(screen.getByText("Closest available load: 140 lb (1 lb over).")).toBeInTheDocument();
+  });
+
+  it("keeps the barbell preview for a saved exercise reopened after refresh", async () => {
+    const set = {
+      ...squatSet("s1", 61.235, 8),
+      exercise_id: "Romanian_Deadlift",
+      exercise_name: "Romanian Deadlift",
+      exercise_equipment: "barbell",
+    };
+    mockApi({
+      "GET /me": () => me,
+      "GET /workouts/current": () => ({ workout: WORKOUT, sets: [set] }),
+      "GET /exercises/Romanian_Deadlift/ghost": () => ({ sets: [] }),
+    });
+    renderWorkout();
+    fireEvent.click(await screen.findByRole("button", { name: /Romanian Deadlift/ }));
+    expect(await screen.findByRole("region", { name: "Plate calculator" })).toBeInTheDocument();
   });
 
   it("keeps the form hidden until the unit is known", async () => {

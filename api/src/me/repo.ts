@@ -21,3 +21,14 @@ export async function ensureProfile(id: string, fallbackName: string): Promise<P
   `;
   return row;
 }
+
+// Only the authenticated user's display preference is updated; workout data remains in kg.
+export async function updateWeightUnit(id: string, unit: "kg" | "lb"): Promise<Profile> {
+  const [row] = await sql<Profile[]>`
+    update public.profiles
+    set weight_unit = ${unit}
+    where id = ${id}
+    returning id, display_name, weight_unit, share_numbers
+  `;
+  return row;
+}

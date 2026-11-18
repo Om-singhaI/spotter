@@ -28,6 +28,36 @@ workoutsRouter.get("/workouts/current", requireUser, async (_req, res) => {
   res.json(await currentWithSets(currentUser(res).id));
 });
 
+const historyQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  offset: z.coerce.number().int().min(0).max(10000).default(0),
+});
+
+workoutsRouter.get("/workouts/history", requireUser, async (req, res) => {
+  const query = historyQuery.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: "bad history pagination" });
+    return;
+  }
+  const { limit, offset } = query.data;
+  res.json(await repo.completedWorkouts(currentUser(res).id, limit, offset));
+});
+
+workoutsRouter.get("/workouts/:id", requireUser, async (req, res) => {
+  const params = idParam.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "bad workout id" });
+    return;
+  }
+  const userId = currentUser(res).id;
+  const workout = await repo.completedWorkout(userId, params.data.id);
+  if (!workout) {
+    res.status(404).json({ error: "workout not found" });
+    return;
+  }
+  res.json({ workout, sets: await repo.workoutSets(userId, workout.id) });
+});
+
 // Starting twice is harmless: the open workout is returned instead of a second one.
 workoutsRouter.post("/workouts", requireUser, async (_req, res) => {
   const user = currentUser(res);

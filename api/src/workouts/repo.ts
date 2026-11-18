@@ -7,6 +7,7 @@ export type WorkoutSet = {
   id: string;
   exercise_id: string;
   exercise_name: string;
+  exercise_equipment: string | null;
   weight_kg: number;
   reps: number;
   rpe: number | null;
@@ -30,14 +31,15 @@ type Db = typeof sql | TransactionSql;
 // One shape for every set the API returns, with the records it earned attached.
 function setRows(db: Db, where: ReturnType<typeof sql>) {
   return db<WorkoutSet[]>`
-    select s.id, s.exercise_id, e.name as exercise_name, s.weight_kg::float8 as weight_kg,
+    select s.id, s.exercise_id, e.name as exercise_name, e.equipment as exercise_equipment,
+           s.weight_kg::float8 as weight_kg,
            s.reps, s.rpe::float8 as rpe, s.is_warmup, s.e1rm_kg::float8 as e1rm_kg, s.performed_at,
            coalesce(array_agg(r.kind order by r.kind) filter (where r.kind is not null), '{}') as records
     from public.workout_sets s
     join public.exercises e on e.id = s.exercise_id
     left join public.personal_records r on r.set_id = s.id
     where ${where}
-    group by s.id, e.name
+    group by s.id, e.name, e.equipment
     order by s.performed_at, s.id
   `;
 }
@@ -85,6 +87,51 @@ export async function discardIfEmpty(userId: string, workoutId: string): Promise
     returning w.id
   `;
   return rows.length > 0;
+}
+
+export type WorkoutHistoryEntry = Workout & {
+  exercise_count: number;
+  set_count: number;
+  record_count: number;
+};
+
+export type WorkoutHistoryPage = { workouts: WorkoutHistoryEntry[]; has_more: boolean };
+
+// Only finished workouts appear in history. Load one extra row to signal if another
+// page exists, and count distinct record-earning sets (not record kinds).
+export async function completedWorkouts(
+  userId: string,
+  limit: number,
+  offset: number,
+): Promise<WorkoutHistoryPage> {
+  const rows = await sql<WorkoutHistoryEntry[]>`
+    select w.id, w.started_at, w.finished_at,
+           count(distinct s.exercise_id)::int as exercise_count,
+           count(distinct s.id)::int as set_count,
+           count(distinct r.set_id)::int as record_count
+    from (
+      select id, user_id, started_at, finished_at
+      from public.workouts
+      where user_id = ${userId} and finished_at is not null
+      order by started_at desc, id desc
+      limit ${limit + 1} offset ${offset}
+    ) w
+    left join public.workout_sets s on s.workout_id = w.id and s.user_id = w.user_id
+    left join public.personal_records r on r.set_id = s.id and r.user_id = w.user_id
+    group by w.id, w.user_id, w.started_at, w.finished_at
+    order by w.started_at desc, w.id desc
+  `;
+  return { workouts: rows.slice(0, limit), has_more: rows.length > limit };
+}
+
+// Never expose someone else's workout or an unfinished workout through history.
+export async function completedWorkout(userId: string, workoutId: string): Promise<Workout | null> {
+  const [row] = await sql<Workout[]>`
+    select id, started_at, finished_at
+    from public.workouts
+    where id = ${workoutId} and user_id = ${userId} and finished_at is not null
+  `;
+  return row ?? null;
 }
 
 export function workoutSets(userId: string, workoutId: string): Promise<WorkoutSet[]> {
