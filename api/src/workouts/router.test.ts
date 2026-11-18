@@ -4,6 +4,8 @@ import { SignJWT } from "jose";
 
 vi.mock("./repo.js", () => ({
   openWorkout: vi.fn(),
+  completedWorkouts: vi.fn(async () => ({ workouts: [], has_more: false })),
+  completedWorkout: vi.fn(async () => null),
   startWorkout: vi.fn(),
   finishWorkout: vi.fn(),
   discardIfEmpty: vi.fn(async () => false),
@@ -37,6 +39,8 @@ let auth = "";
 beforeEach(async () => {
   vi.clearAllMocks();
   vi.mocked(repo.workoutSets).mockResolvedValue([]);
+  vi.mocked(repo.completedWorkouts).mockResolvedValue({ workouts: [], has_more: false });
+  vi.mocked(repo.completedWorkout).mockResolvedValue(null);
   vi.mocked(repo.canLogExercise).mockResolvedValue(true);
   vi.mocked(repo.ghostRow).mockResolvedValue([]);
   vi.mocked(repo.discardIfEmpty).mockResolvedValue(false);
@@ -105,6 +109,85 @@ describe("workouts", () => {
     expect(gone.status).toBe(404);
     const bad = await request(app).post("/workouts/not-a-uuid/finish").set("Authorization", auth);
     expect(bad.status).toBe(400);
+  });
+});
+
+describe("workout history", () => {
+  const finished = { ...open, finished_at: new Date("2026-10-19T11:00:00Z") };
+
+  it("requires authentication for both history endpoints", async () => {
+    expect((await request(app).get("/workouts/history")).status).toBe(401);
+    expect((await request(app).get(`/workouts/${WORKOUT_ID}`)).status).toBe(401);
+    expect(repo.completedWorkouts).not.toHaveBeenCalled();
+    expect(repo.completedWorkout).not.toHaveBeenCalled();
+  });
+
+  it("lists completed workouts with summaries and default pagination", async () => {
+    const entry = { ...finished, exercise_count: 2, set_count: 6, record_count: 1 };
+    vi.mocked(repo.completedWorkouts).mockResolvedValueOnce({
+      workouts: [entry],
+      has_more: false,
+    });
+    const res = await request(app).get("/workouts/history").set("Authorization", auth);
+    expect(res.status).toBe(200);
+    expect(repo.completedWorkouts).toHaveBeenCalledWith(USER_ID, 20, 0);
+    expect(res.body.workouts[0]).toMatchObject({
+      id: WORKOUT_ID,
+      exercise_count: 2,
+      set_count: 6,
+      record_count: 1,
+    });
+    expect(res.body.has_more).toBe(false);
+  });
+
+  it("validates and forwards pagination without querying for invalid values", async () => {
+    const ok = await request(app)
+      .get("/workouts/history?limit=5&offset=10")
+      .set("Authorization", auth);
+    expect(ok.status).toBe(200);
+    expect(repo.completedWorkouts).toHaveBeenCalledWith(USER_ID, 5, 10);
+    vi.mocked(repo.completedWorkouts).mockClear();
+    for (const query of ["limit=0", "limit=51", "limit=nope", "offset=-1", "offset=1.5"]) {
+      const res = await request(app).get(`/workouts/history?${query}`).set("Authorization", auth);
+      expect(res.status).toBe(400);
+    }
+    expect(repo.completedWorkouts).not.toHaveBeenCalled();
+  });
+
+  it("returns a completed workout with its exercises, sets, and records", async () => {
+    vi.mocked(repo.completedWorkout).mockResolvedValue(finished);
+    vi.mocked(repo.workoutSets).mockResolvedValueOnce([
+      {
+        id: "22222222-2222-4222-8222-222222222222",
+        exercise_id: "Barbell_Squat",
+        exercise_name: "Barbell Squat",
+        weight_kg: 100,
+        reps: 5,
+        rpe: null,
+        is_warmup: false,
+        e1rm_kg: 116.667,
+        performed_at: new Date("2026-10-19T10:30:00Z"),
+        records: ["max_weight"],
+      },
+    ]);
+    const res = await request(app).get(`/workouts/${WORKOUT_ID}`).set("Authorization", auth);
+    expect(res.status).toBe(200);
+    expect(repo.completedWorkout).toHaveBeenCalledWith(USER_ID, WORKOUT_ID);
+    expect(repo.workoutSets).toHaveBeenCalledWith(USER_ID, WORKOUT_ID);
+    expect(res.body.workout.id).toBe(WORKOUT_ID);
+    expect(res.body.sets[0]).toMatchObject({
+      exercise_name: "Barbell Squat",
+      records: ["max_weight"],
+    });
+  });
+
+  it("rejects invalid or inaccessible workout IDs without loading sets", async () => {
+    const malformed = await request(app).get("/workouts/not-a-uuid").set("Authorization", auth);
+    expect(malformed.status).toBe(400);
+    expect(repo.completedWorkout).not.toHaveBeenCalled();
+    const missing = await request(app).get(`/workouts/${WORKOUT_ID}`).set("Authorization", auth);
+    expect(missing.status).toBe(404);
+    expect(repo.workoutSets).not.toHaveBeenCalled();
   });
 });
 
